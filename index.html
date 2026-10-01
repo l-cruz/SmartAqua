@@ -66,6 +66,16 @@ ul{padding-left:20px}li{margin:4px 0}
       <div id="dayChart"></div>
       <p class="legend">Línea azul: consumo de hoy (L/h). Banda gris: rango habitual de los 6 días anteriores. Puntos rojos: lecturas anómalas.</p>
     </div>
+    <div class="card"><h2>Simulador de fugas</h2>
+      <p class="sub">Prueba cómo reacciona el detector inyectando una avería en el piso seleccionado.</p>
+      <div class="row">
+        <button class="btn bad" id="bDrip">Goteo continuo (WC, grifo)</button>
+        <button class="btn bad" id="bBurst">Rotura puntual de tubería</button>
+        <button class="btn" id="bClear">Reparar piso</button>
+        <button class="btn" id="bReset">Restaurar datos de ejemplo</button>
+      </div>
+    </div>
+  </section>
 
   <!-- Pantalla 3 -->
   <section id="s-alertas" class="screen">
