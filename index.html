@@ -119,7 +119,7 @@ ul{padding-left:20px}li{margin:4px 0}
 const D=7,H=24,PROFILE=[1,.5,.4,.4,.5,2,8,14,9,5,4,4,6,7,4,3,4,6,10,12,9,6,3,2];
 const LET=['A','B','C'];
 function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-const r=rng(2024);
+const r=rng(9999);
 const apts=[];
 for(let p=1;p<=3;p++)for(const l of LET){
   const f=2.4+r()*1.2,noise=[];
@@ -172,12 +172,23 @@ function lineChart(el,pts,band,bad,unit){
 function barChart(el,vals,labels){
   const W=640,Hh=220,pl=50,pb=26,max=Math.max(...vals)*1.15,bw=(W-pl-10)/vals.length;
   let s=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Consumo diario">`;
-  for(let k=0;k<=4;k++){const v=max*k/4,y=Hh-pb-v/max*(Hh-pb-10);s+=`<line x1="${pl}" x2="${W-10}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${pl-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--mut)">${fmt(v)}</text>`}
-  vals.forEach((v,i)=>{const h=v/max*(Hh-pb-10), on=i===curDay;
+  
+  for(let k=0;k<=4;k++){
+    const v=max*k/4, y=Hh-pb-v/max*(Hh-pb-10);
+    s+=`<line x1="${pl}" x2="${W-10}" y1="${y}" y2="${y}" stroke="var(--line)"/>
+        <text x="${pl-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--mut)">${fmt(v)}</text>`;
+  }
+  
+  vals.forEach((v,i)=>{
+    const h=v/max*(Hh-pb-10), on=i===curDay;
     s+=`<g class="day-btn" data-d="${i}" style="cursor:pointer">
-      <rect x="${pl+i*bw+8}" y="${Hh-pb-h}" width="${bw-16}" height="${h}" rx="3" fill="${on?'var(--pri)':'var(--mut)'}" opacity="${on?1:.5}"/>
-      <text x="${pl+i*bw+bw/2}" y="${Hh-8}" text-anchor="middle" font-size="11" fill="var(--mut)">${labels[i]}</text>
-      <rect x="${pl+i*bw}" y="0" width="${bw}" height="${Hh}" fill="transparent"/></g>`});
+          <rect x="${pl+i*bw+8}" y="${Hh-pb-h}" width="${bw-16}" height="${h}" rx="3" fill="${on?'var(--pri)':'var(--mut)'}" opacity="${on?1:.5}"/>
+          <text x="${pl+i*bw+bw/2}" y="${Hh-8}" text-anchor="middle" font-size="11" fill="var(--mut)">${labels[i]}</text>
+          <rect x="${pl+i*bw}" y="0" width="${bw}" height="${Hh}" fill="transparent"/>
+        </g>`;
+  });
+  
+  el.innerHTML=s+'</svg>';
 }
 
 function render(){
