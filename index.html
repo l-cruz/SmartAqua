@@ -6,8 +6,8 @@
 <title>SmartAqua · Consumo de agua y detección de fugas</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💧</text></svg>">
 <style>
-:root{--bg:#eef4f3;--card:#fff;--ink:#12303a;--mut:#5b7480;--line:#d3e1e3;--pri:#0b6e8a;--ok:#2e9e6b;--warn:#e0a21b;--bad:#d2452f;--okbg:#e2f4ea;--warnbg:#fbf0d3;--badbg:#fbe1db}
-@media(prefers-color-scheme:dark){:root{--bg:#0d1d23;--card:#14292f;--ink:#e3f0f2;--mut:#93aab2;--line:#26434b;--pri:#4fb8d6;--okbg:#17372b;--warnbg:#3d3314;--badbg:#411e18}}
+:root{--bg:#eef4f3;--card:#fff;--ink:#12303a;--mut:#5b7480;--line:#d3e1e3;--pri:#0b6e8a;--sel:#06394a;--ok:#2e9e6b;--warn:#e0a21b;--bad:#d2452f;--okbg:#e2f4ea;--warnbg:#fbf0d3;--badbg:#fbe1db}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1d23;--card:#14292f;--ink:#e3f0f2;--mut:#93aab2;--line:#26434b;--pri:#4fb8d6;--sel:#1f7f9c;--okbg:#17372b;--warnbg:#3d3314;--badbg:#411e18}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Trebuchet MS","Segoe UI",system-ui,sans-serif;padding-bottom:72px}
 header{padding:20px 20px 8px;max-width:960px;margin:auto}
@@ -33,6 +33,12 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--pri);outline-o
 .tag{display:inline-block;font-size:.75rem;padding:1px 8px;border-radius:99px;font-weight:700}
 .tag.ok{background:var(--okbg);color:var(--ok)}.tag.warn{background:var(--warnbg);color:#9a6b00}.tag.leak{background:var(--badbg);color:var(--bad)}
 svg{width:100%;height:auto;display:block}
+.day-btn{cursor:pointer}
+.day-btn .bar{fill:var(--mut);opacity:.45;transition:fill .3s,opacity .3s}
+.day-btn:hover .bar{opacity:.75}
+.day-btn.on .bar{fill:var(--sel);opacity:1}
+.day-btn text{transition:fill .3s}.day-btn.on text{fill:var(--ink);font-weight:700}
+#dayChart svg{cursor:crosshair;touch-action:pan-y}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
 select,.btn{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 .btn{cursor:pointer}.btn.pri{background:var(--pri);color:#fff;border-color:var(--pri)}.btn.bad{border-color:var(--bad);color:var(--bad)}
@@ -40,6 +46,18 @@ select,.btn{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid var
 .alert p{margin:4px 0}
 .legend{font-size:.8rem;color:var(--mut)}
 ul{padding-left:20px}li{margin:4px 0}
+.live{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.tank{position:relative;width:110px;height:150px;border:3px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg)}
+.water{position:absolute;left:0;right:0;bottom:0;height:10%;background:var(--pri);opacity:.9;transition:height 1.2s ease}
+.water::before{content:"";position:absolute;left:0;right:0;top:-10px;height:10px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='10' viewBox='0 0 40 10'%3E%3Cpath d='M0 10 Q10 0 20 10 T40 10 V10 H0Z' fill='%230b6e8a'/%3E%3C/svg%3E") repeat-x;background-size:40px 10px;animation:wave 2s linear infinite}
+@keyframes wave{to{background-position-x:40px}}
+@media(prefers-reduced-motion:reduce){.water::before{animation:none}}
+.big{font:700 2.6rem Georgia,serif;line-height:1.1}.big small{font:600 1rem "Trebuchet MS",sans-serif;color:var(--mut)}
+.rk{display:grid;grid-template-columns:70px 1fr 90px;gap:8px;align-items:center;margin:8px 0;font-size:.9rem;cursor:pointer}
+.rk i{display:block;height:12px;border-radius:6px;background:var(--pri);transition:width .4s}
+.rk.warn i{background:var(--warn)}.rk.leak i{background:var(--bad)}.rk span{text-align:right;color:var(--mut)}
+.tips{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.tip{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg)}.tip p{margin:4px 0 0;color:var(--mut);font-size:.9rem}
 </style>
 </head>
 <body>
@@ -51,41 +69,47 @@ ul{padding-left:20px}li{margin:4px 0}
   <!-- Pantalla 1 -->
   <section id="s-panel" class="screen on">
     <div class="kpis" id="kpis"></div>
-    <div class="card"><h2>Estado del edificio hoy</h2>
+    <div class="card"><h2>Estado del edificio · <span class="dayLbl"></span></h2>
       <p class="sub" style="margin-bottom:10px">Toca un piso para ver su detalle.</p>
       <div id="building"></div>
     </div>
-    <div class="card"><h2>Consumo diario del edificio (últimos 7 días en L)</h2><div id="weekChart"></div></div>
+    <div class="card"><h2>Consumo diario del edificio (últimos 7 días en L)</h2>
+      <p class="sub">Pulsa una barra para analizar ese día.</p>
+      <div id="weekChart"></div></div>
+    <div class="card"><h2>Consumo por persona · <span class="dayLbl"></span></h2><div id="rank"></div></div>
   </section>
 
   <!-- Pantalla 2 -->
   <section id="s-detalle" class="screen">
-    <div class="card"><h2>Análisis por piso</h2>
+    <div class="card"><h2>Análisis por piso · <span class="dayLbl"></span></h2>
       <div class="row"><label for="sel">Piso:</label><select id="sel"></select><span id="selTag"></span></div>
       <div id="detStats" class="kpis"></div>
       <div id="dayChart"></div>
-      <p class="legend">Línea azul: consumo de hoy (L/h). Banda gris: rango habitual de los 6 días anteriores. Puntos rojos: lecturas anómalas.</p>
+      <p class="legend">Línea azul: consumo por hora (L). Banda gris: rango habitual de los otros 6 días. Puntos rojos: lecturas anómalas. Pasa el cursor (o desliza el dedo) por la línea para ver los litros de cada hora.</p>
     </div>
-    <div class="card"><h2>Simulador de fugas</h2>
-      <p class="sub">Prueba cómo reacciona el detector inyectando una avería en el piso seleccionado.</p>
-      <div class="row">
-        <button class="btn bad" id="bDrip">Goteo continuo (WC, grifo)</button>
-        <button class="btn bad" id="bBurst">Rotura puntual de tubería</button>
-        <button class="btn" id="bClear">Reparar piso</button>
-        <button class="btn" id="bReset">Restaurar datos de ejemplo</button>
+    <div class="card"><h2>Caudal en directo</h2>
+      <div class="live">
+        <div class="tank"><div class="water" id="water"></div></div>
+        <div>
+          <span class="sub">Piso <b id="liveId"></b> · ahora</span>
+          <div class="big"><span id="liveQ">0</span> <small>L/min</small></div>
+          <p id="liveS"></p>
+          <p class="legend" id="liveH"></p>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- Pantalla 3 -->
   <section id="s-alertas" class="screen">
-    <h2 style="margin-top:6px">Alertas de posibles fugas</h2>
+    <h2 style="margin-top:6px">Alertas de posibles fugas · <span class="dayLbl"></span></h2>
     <div id="alerts"></div>
     <div class="card"><h2>¿Cómo se detecta?</h2>
       <ul>
-        <li><b>Caudal nocturno mínimo:</b> entre la 1:00 y las 5:00 nadie usa agua. Si el contador nunca baja de 6 L/h, hay una fuga continua.</li>
+        <li><b>Fuga continua:</b> entre la 1:00 y las 5:00 nadie usa agua. Si el contador nunca baja de 6 L/h, hay una fuga importante.</li>
+        <li><b>Gotera ligera:</b> si el mínimo nocturno está entre 3 y 6 L/h, hay una pérdida pequeña pero constante a todas horas.</li>
         <li><b>Pico anormal:</b> una hora que supera en más de 3 desviaciones el consumo habitual de esa misma hora indica una rotura o un grifo abierto.</li>
-        <li><b>Consumo diario elevado:</b> más de un 30 % sobre la media de los días anteriores se marca como aviso.</li>
+        <li><b>Consumo diario elevado:</b> más de un 30 % sobre la media de los otros días se marca como aviso.</li>
       </ul>
     </div>
   </section>
@@ -100,11 +124,7 @@ ul{padding-left:20px}li{margin:4px 0}
       <p>El agua, un bien escaso, podrá ser gestionada de forma inteligente al mismo tiempo que se evita la contaminación por aguas residuales.</p>
       <p>La instalación de sensores proporciona datos de la calidad del agua y del caudal de la red de saneamiento, lo que permite realizar inversiones donde sea realmente necesario.</p>
     </div>
-    <div class="card"><h2>Lo que muestra esta demo</h2>
-      <p>Los contadores de cada piso envían una lectura por hora. La app compara cada lectura con el comportamiento habitual y avisa antes de que una fuga pequeña se convierta en un gasto grande en la factura y en agua desperdiciada.</p>
-      <div id="impact" class="kpis"></div>
-      <p class="legend">Los datos son simulados con fines demostrativos.</p>
-    </div>
+    <div class="card"><h2>Consejos para ahorrar agua</h2><div class="tips"><div class="tip"><b>🚿 Duchas de 5 minutos</b><p>Frente a un baño o una ducha larga, puedes ahorrar decenas de litros cada día.</p></div><div class="tip"><b>🪥 Cierra el grifo</b><p>Mientras te cepillas los dientes, te afeitas o enjabonas los platos.</p></div><div class="tip"><b>🚽 Cisterna de doble descarga</b><p>Usa la descarga corta siempre que puedas y revisa que no pierda agua.</p></div><div class="tip"><b>🧪 Prueba del colorante</b><p>Echa unas gotas de colorante en la cisterna: si aparece color en la taza sin tirar de la cadena, hay fuga.</p></div><div class="tip"><b>🔍 Vigila tu contador</b><p>Cierra todos los grifos y mira el contador: si se mueve, tienes una pérdida oculta.</p></div><div class="tip"><b>🧺 Lavadora y lavavajillas llenos</b><p>Espera a tener carga completa y usa programas eco.</p></div><div class="tip"><b>🚰 Aireadores en los grifos</b><p>Mezclan aire con el agua y reducen el caudal sin que notes la diferencia.</p></div><div class="tip"><b>💧 Repara los goteos</b><p>Un grifo que gotea sin parar puede desperdiciar decenas de litros al día.</p></div><div class="tip"><b>🌱 Reutiliza el agua</b><p>El agua de lavar verduras o la que sale mientras se calienta la ducha sirve para regar plantas.</p></div><div class="tip"><b>✈️ Cierra la llave de paso</b><p>Si te vas de viaje, evita que una avería te sorprenda a la vuelta.</p></div></div></div>
   </section>
 </main>
 
@@ -116,26 +136,42 @@ ul{padding-left:20px}li{margin:4px 0}
 </nav>
 
 <script>
-const D=7,H=24,PROFILE=[1,.5,.4,.4,.5,2,8,14,9,5,4,4,6,7,4,3,4,6,10,12,9,6,3,2];
+const SEED=7,D=7,H=24,PROFILE=[1,.5,.4,.4,.5,2,8,14,9,5,4,4,6,7,4,3,4,6,10,12,9,6,3,2];
+const DAYS=['Hace 6d','Hace 5d','Hace 4d','Hace 3d','Hace 2d','Ayer','Hoy'];
 const LET=['A','B','C'];
 function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-const r=rng(9999);
+const g=(h,c,s)=>Math.exp(-((h-c)**2)/(2*s*s));
+const r=rng(SEED);
 const apts=[];
+let n=0;
 for(let p=1;p<=3;p++)for(const l of LET){
-  const f=2.4+r()*1.2,noise=[];
-  for(let i=0;i<D*H;i++)noise.push(PROFILE[i%H]*f*(.85+r()*.3));
-  apts.push({id:p+l,floor:p,noise,leak:null});
+  // Cada piso tiene su propio perfil: nº de personas, horarios y hábitos distintos
+  const occ=1+Math.floor(r()*4),sh=r()*3-1.2,mA=.6+r()*.9,eA=.6+r()*.9,lu=r()*.9,nb=.15+r()*.2,vol=.18+r()*.2;
+  const noise=[];
+  for(let k=0;k<D;k++){
+    const day=.85+r()*.3,ev=r()<.35?{h:9+Math.floor(r()*11),v:12+r()*10}:null;
+    for(let h=0;h<H;h++){
+      const base=occ*(nb+13*mA*g(h,7+sh,1.2)+8*lu*g(h,13.5+sh/2,1.6)+11*eA*g(h,20+sh,1.8)+3*g(h,22.5+sh,.8));
+      let v=base*day*(1-vol+r()*2*vol);
+      if(ev&&ev.h===h)v+=ev.v;
+      if(h<5&&r()<.15)v+=1.5+r()*2;
+      noise.push(v);
+    }
+  }
+  apts.push({id:p+l,floor:p,occ,noise,leak:null,bh:9+(n++*5)%10});
 }
 const done=new Set();
-const DEFAULT_LEAKS={'2B':'drip','3C':'burst'};
+const DEFAULT_LEAKS={'1C':'light','2B':'drip','3C':'burst','3A':'light','1A':'burst'};
 function resetLeaks(){apts.forEach(a=>a.leak=DEFAULT_LEAKS[a.id]||null);done.clear()}
 function series(a){
   const d=a.noise.slice();
   if(a.leak==='drip')for(let i=4*H;i<D*H;i++)d[i]+=13+(i%3);
-  if(a.leak==='burst'){d[6*H+14]+=90;d[6*H+15]+=150;d[6*H+16]+=70}
+  if(a.leak==='light')for(let i=3*H;i<D*H;i++)d[i]+=4+(i%2)*.4;
+  if(a.leak==='burst'){d[6*H+a.bh]+=90;d[6*H+a.bh+1]+=150;d[6*H+a.bh+2]+=70}
   return d;
 }
 const fmt=n=>Math.round(n).toLocaleString('es-ES');
+const dayName=()=>curDay===6?'hoy':DAYS[curDay].toLowerCase();
 function analyze(a){
   const d=series(a), last=d.slice(curDay*H,(curDay+1)*H), prev=[];
   for(let h=0;h<H;h++){
@@ -144,10 +180,16 @@ function analyze(a){
     const m=v.reduce((x,y)=>x+y)/6, sd=Math.sqrt(v.reduce((x,y)=>x+(y-m)**2,0)/6);
     prev.push({m,sd:Math.max(sd,.2*m)});
   }
-  const total=last.reduce((x,y)=>x+y), avg=prev.reduce((x,p)=>x+p.m,0)/1;
+  const total=last.reduce((x,y)=>x+y), avg=prev.reduce((x,p)=>x+p.m,0);
   const night=Math.min(...last.slice(1,5));
   const alerts=[], bad=new Set(); let lost=0;
-  if(night>6){alerts.push({sev:'crit',kind:'Fuga continua',txt:`Caudal nocturno de ${night.toFixed(1)} L/h. Posible cisterna o grifo con pérdida.`,act:'Revisar cisternas y cerrar llave de paso.',lost:night*24}); lost+=night*24; for(let h=0;h<H;h++)bad.add(h)}
+  if(night>6){
+    alerts.push({sev:'crit',kind:'Fuga continua',txt:`Caudal nocturno de ${night.toFixed(1)} L/h. Posible cisterna o grifo con pérdida.`,act:'Revisar cisternas y cerrar llave de paso.',lost:night*24});
+    lost+=night*24; for(let h=0;h<H;h++)bad.add(h);
+  } else if(night>3){
+    alerts.push({sev:'high',kind:'Gotera ligera',txt:`Caudal mínimo constante de ${night.toFixed(1)} L/h a todas horas (lo normal es ~1 L/h). Pérdida pequeña pero continua: unos ${fmt(night*24)} L al día.`,act:'Revisar la cisterna del WC (prueba del colorante) y las juntas de los grifos.',lost:night*24});
+    lost+=night*24; for(let h=0;h<H;h++)bad.add(h);
+  }
   const sp=[]; last.forEach((v,h)=>{if(v>prev[h].m+3*prev[h].sd&&v-prev[h].m>30)sp.push(h)});
   if(sp.length){const ex=sp.reduce((x,h)=>x+last[h]-prev[h].m,0); alerts.push({sev:'high',kind:'Pico anómalo',txt:`Consumo excesivo entre las ${sp[0]}:00 y las ${sp[sp.length-1]+1}:00.`,act:'Comprobar grifos abiertos.',lost:ex}); lost+=ex; sp.forEach(h=>bad.add(h))}
   let st=alerts.length?'leak':(total/avg)>1.3?'warn':'ok';
@@ -167,38 +209,61 @@ function lineChart(el,pts,band,bad,unit){
     s+=`<polygon points="${up.concat(lo).join(' ')}" fill="var(--mut)" opacity=".2"/>`}
   s+=`<polyline fill="none" stroke="var(--pri)" stroke-width="2.5" points="${pts.map((v,i)=>x(i)+','+y(v)).join(' ')}"/>`;
   pts.forEach((v,i)=>{if(bad&&bad.has(i))s+=`<circle cx="${x(i)}" cy="${y(v)}" r="4.5" fill="var(--bad)"/>`});
-  el.innerHTML=s+`<text x="${pl}" y="9" font-size="11" fill="var(--mut)">${unit}</text></svg>`;
+  s+=`<text x="${pl}" y="9" font-size="11" fill="var(--mut)">${unit}</text>
+  <g id="tip" style="display:none" pointer-events="none">
+    <line id="tipL" y1="${pt}" y2="${Hh-pb}" stroke="var(--ink)" stroke-dasharray="3 3" opacity=".6"/>
+    <circle id="tipC" r="6" fill="var(--card)" stroke="var(--sel)" stroke-width="3"/>
+    <rect id="tipR" width="172" height="44" rx="6" fill="var(--card)" stroke="var(--line)"/>
+    <text id="tipT1" font-size="13" font-weight="700" fill="var(--ink)"></text>
+    <text id="tipT2" font-size="11" fill="var(--mut)"></text>
+  </g></svg>`;
+  el.innerHTML=s;
+  const svg=el.querySelector('svg'),$=id=>svg.querySelector('#'+id);
+  function showTip(ev){
+    const bb=svg.getBoundingClientRect(),px=(ev.clientX-bb.left)*W/bb.width;
+    let i=Math.round((px-pl)*(pts.length-1)/(W-pl-pr));i=Math.max(0,Math.min(pts.length-1,i));
+    const cx=x(i),cy=y(pts[i]),bx=cx+12+172>W?cx-12-172:cx+12,by=Math.max(pt,Math.min(cy-22,Hh-pb-46));
+    $('tip').style.display='';
+    $('tipL').setAttribute('x1',cx);$('tipL').setAttribute('x2',cx);
+    $('tipC').setAttribute('cx',cx);$('tipC').setAttribute('cy',cy);
+    $('tipR').setAttribute('x',bx);$('tipR').setAttribute('y',by);
+    $('tipT1').setAttribute('x',bx+10);$('tipT1').setAttribute('y',by+19);
+    $('tipT1').textContent=`${i}:00–${i+1}:00 · ${fmt(pts[i])} L`;
+    $('tipT2').setAttribute('x',bx+10);$('tipT2').setAttribute('y',by+35);
+    $('tipT2').textContent=band?`Habitual: ${fmt(band[i].m)} L${bad&&bad.has(i)?' · anómalo':''}`:'';
+  }
+  svg.addEventListener('pointermove',showTip);
+  svg.addEventListener('pointerdown',showTip);
+  svg.addEventListener('pointerleave',()=>{$('tip').style.display='none'});
 }
 function barChart(el,vals,labels){
   const W=640,Hh=220,pl=50,pb=26,max=Math.max(...vals)*1.15,bw=(W-pl-10)/vals.length;
   let s=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Consumo diario">`;
-  
   for(let k=0;k<=4;k++){
     const v=max*k/4, y=Hh-pb-v/max*(Hh-pb-10);
     s+=`<line x1="${pl}" x2="${W-10}" y1="${y}" y2="${y}" stroke="var(--line)"/>
         <text x="${pl-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--mut)">${fmt(v)}</text>`;
   }
-  
   vals.forEach((v,i)=>{
-    const h=v/max*(Hh-pb-10), on=i===curDay;
-    s+=`<g class="day-btn" data-d="${i}" style="cursor:pointer">
-          <title>${fmt(v)} Litros</title>
-          <rect x="${pl+i*bw+8}" y="${Hh-pb-h}" width="${bw-16}" height="${h}" rx="3" fill="${on?'var(--pri)':'var(--mut)'}" opacity="${on?1:.5}"/>
+    const h=v/max*(Hh-pb-10);
+    s+=`<g class="day-btn${i===curDay?' on':''}" data-d="${i}">
+          <title>${labels[i]}: ${fmt(v)} litros</title>
+          <rect class="bar" x="${pl+i*bw+8}" y="${Hh-pb-h}" width="${bw-16}" height="${h}" rx="3"/>
           <text x="${pl+i*bw+bw/2}" y="${Hh-8}" text-anchor="middle" font-size="11" fill="var(--mut)">${labels[i]}</text>
           <rect x="${pl+i*bw}" y="0" width="${bw}" height="${Hh}" fill="transparent"/>
         </g>`;
   });
-  
   el.innerHTML=s+'</svg>';
 }
 
-function render(){
+function render(rebuildBars=true){
   compute();
   const all=Object.values(res),tot=all.reduce((x,a)=>x+a.total,0),avg=all.reduce((x,a)=>x+a.avg,0);
   const al=all.flatMap(a=>a.alerts.map(x=>({...x,id:a.id}))).filter(x=>!done.has(x.id+x.kind));
   const lost=all.reduce((x,a)=>x+a.lost,0);
+  document.querySelectorAll('.dayLbl').forEach(e=>e.textContent=curDay===6?'hoy':DAYS[curDay]);
   document.getElementById('kpis').innerHTML=
-   `<div class="kpi"><span>Consumo hoy</span><strong>${fmt(tot)} L</strong></div>
+   `<div class="kpi"><span>Consumo ${dayName()}</span><strong>${fmt(tot)} L</strong></div>
     <div class="kpi"><span>Frente a la media</span><strong>${tot/avg>=1?'+':''}${Math.round((tot/avg-1)*100)} %</strong></div>
     <div class="kpi"><span>Alertas activas</span><strong>${al.length}</strong></div>
     <div class="kpi"><span>Agua perdida estimada</span><strong>${fmt(lost)} L/día</strong></div>`;
@@ -206,50 +271,66 @@ function render(){
   for(let p=3;p>=1;p--){b+=`<div class="floor"><i>Planta ${p}</i>`;
     LET.forEach(l=>{const a=res[p+l];b+=`<button class="apt ${a.st}" data-id="${a.id}"><small>Piso ${a.id}</small><b>${fmt(a.total)} L</b><br><span class="tag ${a.st}">${ST[a.st]}</span></button>`});b+='</div>'}
   document.getElementById('building').innerHTML=b;
-  const daily=[];for(let k=0;k<D;k++)daily.push(apts.reduce((x,a)=>x+series(a).slice(k*H,(k+1)*H).reduce((m,n)=>m+n),0));
-  barChart(document.getElementById('weekChart'),daily,['Hace 6d','Hace 5d','Hace 4d','Hace 3d','Hace 2d','Ayer','Hoy']);
+  if(rebuildBars||!document.querySelector('#weekChart .day-btn')){
+    const daily=[];for(let k=0;k<D;k++)daily.push(apts.reduce((x,a)=>x+series(a).slice(k*H,(k+1)*H).reduce((m,n)=>m+n),0));
+    barChart(document.getElementById('weekChart'),daily,DAYS);
+  }
   const bd=document.getElementById('badge');bd.textContent=al.length?' ('+al.length+')':'';
-  renderDetail();renderAlerts(al);renderImpact(all,lost);
+  renderDetail();renderAlerts(al);renderRank(all);
 }
 function renderDetail(){
   const sel=document.getElementById('sel');
-  if(!sel.options.length)apts.forEach(a=>sel.add(new Option(`Piso ${a.id} (planta ${a.floor})`,a.id)));
+  if(!sel.options.length)apts.forEach(a=>sel.add(new Option(`Piso ${a.id} (planta ${a.floor}) · ${a.occ} ${a.occ>1?'personas':'persona'}`,a.id)));
   sel.value=cur;const a=res[cur];
   document.getElementById('selTag').innerHTML=`<span class="tag ${a.st}">${ST[a.st]}</span>`;
   document.getElementById('detStats').innerHTML=
-   `<div class="kpi"><span>Total hoy</span><strong>${fmt(a.total)} L</strong></div>
-    <div class="kpi"><span>Media diaria previa</span><strong>${fmt(a.avg)} L</strong></div>
+   `<div class="kpi"><span>Total ${dayName()}</span><strong>${fmt(a.total)} L</strong></div>
+    <div class="kpi"><span>Media de los otros días</span><strong>${fmt(a.avg)} L</strong></div>
     <div class="kpi"><span>Mínimo nocturno</span><strong>${a.night.toFixed(1)} L/h</strong></div>`;
-  lineChart(document.getElementById('dayChart'),a.last,a.prev,a.bad,'L/h');
+  lineChart(document.getElementById('dayChart'),a.last,a.prev,a.bad,'L por hora');tickLive();
 }
 function renderAlerts(al){
   const box=document.getElementById('alerts');
   const all=Object.values(res).flatMap(a=>a.alerts.map(x=>({...x,id:a.id})));
-  if(!all.length){box.innerHTML='<div class="card">Sin anomalías. Todos los pisos tienen un consumo normal. Prueba el simulador en la pantalla Detalle.</div>';return}
+  if(!all.length){box.innerHTML='<div class="card">Sin anomalías detectadas en este día. Todos los pisos tienen un consumo normal.</div>';return}
   box.innerHTML=all.map(x=>{const k=x.id+x.kind,d=done.has(k);
     return `<div class="card alert ${x.sev==='high'?'high':''} ${d?'done':''}"><span class="tag ${x.sev==='high'?'warn':'leak'}">${x.kind}</span> <b>Piso ${x.id}</b>
     <p>${x.txt}</p><p><b>Qué hacer:</b> ${x.act}</p>
     <div class="row"><button class="btn" data-go="${x.id}">Ver gráfico</button><button class="btn" data-done="${k}">${d?'Reabrir':'Marcar como revisada'}</button></div></div>`}).join('');
 }
-function renderImpact(all,lost){
-  document.getElementById('impact').innerHTML=
-   `<div class="kpi"><span>Pérdida estimada al mes</span><strong>${fmt(lost*30/1000)} m³</strong></div>
-    <div class="kpi"><span>Pisos con alerta</span><strong>${all.filter(a=>a.st==='leak').length} de 9</strong></div>`;
+function renderRank(all){
+  const rows=all.map(a=>({a,pp:a.total/apts.find(x=>x.id===a.id).occ})).sort((x,y)=>y.pp-x.pp),mx=rows[0].pp;
+  document.getElementById('rank').innerHTML=rows.map(({a,pp})=>`<div class="rk ${a.st}" data-id="${a.id}"><b>Piso ${a.id}</b><i style="width:${pp/mx*100}%"></i><span>${fmt(pp)} L/pers.</span></div>`).join('')+'<p class="legend">Un consumo por persona muy superior al resto puede indicar una fuga.</p>';
 }
+function tickLive(){
+  const a=apts.find(x=>x.id===cur);if(!a)return;
+  const d=series(a),now=new Date().getHours(),v=d[6*H+now],mx=Math.max(...d.slice(6*H,7*H));
+  const q=Math.max(0,v/60*(.8+Math.random()*.4));
+  const $=id=>document.getElementById(id);
+  $('liveId').textContent=a.id;$('liveQ').textContent=q.toFixed(2).replace('.',',');
+  $('water').style.height=(8+Math.min(1,q/(mx/60))*80)+'%';
+  let st='Caudal normal',cls='ok';
+  if(a.leak==='drip'||a.leak==='light'){st='Caudal de fondo constante: posible fuga';cls='leak'}
+  else if(a.leak==='burst'&&now>=a.bh&&now<=a.bh+2){st='Caudal anormalmente alto: posible rotura';cls='leak'}
+  $('liveS').innerHTML=`<span class="tag ${cls}">${st}</span>`;
+  $('liveH').textContent=`Previsto para las ${now}:00: ${fmt(v)} L esta hora`;
+}
+setInterval(tickLive,1500);
 function show(s){document.querySelectorAll('.screen').forEach(e=>e.classList.toggle('on',e.id==='s-'+s));
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));scrollTo(0,0)}
 document.getElementById('nav').onclick=e=>{const b=e.target.closest('button');if(b)show(b.dataset.s)};
 document.body.addEventListener('click',e=>{
+  const g=e.target.closest('.day-btn');
+  if(g){
+    curDay=+g.dataset.d;
+    document.querySelectorAll('#weekChart .day-btn').forEach(n=>n.classList.toggle('on',+n.dataset.d===curDay));
+    render(false);return;
+  }
   const t=e.target.closest('[data-id],[data-go],[data-done]');if(!t)return;
   if(t.dataset.id||t.dataset.go){cur=t.dataset.id||t.dataset.go;render();show('detalle')}
   else{const k=t.dataset.done;done.has(k)?done.delete(k):done.add(k);render()}
 });
 document.getElementById('sel').onchange=e=>{cur=e.target.value;render()};
-const cp=()=>apts.find(a=>a.id===cur);
-bDrip.onclick=()=>{cp().leak='drip';render()};
-bBurst.onclick=()=>{cp().leak='burst';render()};
-bClear.onclick=()=>{cp().leak=null;render()};
-bReset.onclick=()=>{resetLeaks();render()};
 resetLeaks();render();
 </script>
 </body>
