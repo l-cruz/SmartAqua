@@ -55,7 +55,7 @@ ul{padding-left:20px}li{margin:4px 0}
       <p class="sub" style="margin-bottom:10px">Toca un piso para ver su detalle.</p>
       <div id="building"></div>
     </div>
-    <div class="card"><h2>Consumo diario del edificio (últimos 7 días)</h2><div id="weekChart"></div></div>
+    <div class="card"><h2>Consumo diario del edificio (últimos 7 días en L)</h2><div id="weekChart"></div></div>
   </section>
 
   <!-- Pantalla 2 -->
@@ -182,6 +182,7 @@ function barChart(el,vals,labels){
   vals.forEach((v,i)=>{
     const h=v/max*(Hh-pb-10), on=i===curDay;
     s+=`<g class="day-btn" data-d="${i}" style="cursor:pointer">
+          <title>${fmt(v)} Litros</title>
           <rect x="${pl+i*bw+8}" y="${Hh-pb-h}" width="${bw-16}" height="${h}" rx="3" fill="${on?'var(--pri)':'var(--mut)'}" opacity="${on?1:.5}"/>
           <text x="${pl+i*bw+bw/2}" y="${Hh-8}" text-anchor="middle" font-size="11" fill="var(--mut)">${labels[i]}</text>
           <rect x="${pl+i*bw}" y="0" width="${bw}" height="${Hh}" fill="transparent"/>
