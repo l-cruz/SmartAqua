@@ -164,23 +164,17 @@ function barChart(el,vals,labels){
   let s=`<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Consumo diario">`;
   
   for(let k=0;k<=4;k++){
-    const v=max*k/4,y=Hh-pb-v/max*(Hh-pb-10);
+    const v=max*k/4, y=Hh-pb-v/max*(Hh-pb-10);
     s+=`<line x1="${pl}" x2="${W-10}" y1="${y}" y2="${y}" stroke="var(--line)"/>
         <text x="${pl-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--mut)">${fmt(v)}</text>`;
   }
   
   vals.forEach((v,i)=>{
-    const h=v/max*(Hh-pb-10);
-    
-    // Lógica visual: Si la barra actual (i) es igual al día seleccionado (curDay)
-    const isActive = (i === curDay); 
-    const color = isActive ? 'var(--pri)' : 'var(--mut)'; // var(--pri) es el azul fuerte
-    const opacidad = isActive ? '1' : '0.4'; // 1 es totalmente opaco, 0.4 es semitransparente
-    
+    const h=v/max*(Hh-pb-10), on=i===curDay;
     s+=`<g class="day-btn" data-d="${i}" style="cursor:pointer">
           <title>${fmt(v)} Litros</title>
-          <rect x="${pl+i*bw+8}" y="${Hh-pb-h}" width="${bw-16}" height="${h}" rx="3" fill="${color}" opacity="${opacidad}"/>
-          <text x="${pl+i*bw+bw/2}" y="${Hh-8}" text-anchor="middle" font-size="11" fill="${color}" font-weight="${isActive ? 'bold' : 'normal'}">${labels[i]}</text>
+          <rect x="${pl+i*bw+8}" y="${Hh-pb-h}" width="${bw-16}" height="${h}" rx="3" fill="${on?'var(--pri)':'var(--mut)'}" opacity="${on?1:.5}"/>
+          <text x="${pl+i*bw+bw/2}" y="${Hh-8}" text-anchor="middle" font-size="11" fill="var(--mut)">${labels[i]}</text>
           <rect x="${pl+i*bw}" y="0" width="${bw}" height="${Hh}" fill="transparent"/>
         </g>`;
   });
